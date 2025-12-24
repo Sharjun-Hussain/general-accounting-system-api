@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabaseClient'
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params
     const { data, error } = await supabase
         .from('assets')
         .select('*')
-        .eq('id', params.id)
+        .eq('id', id)
         .single()
 
     if (error) {
@@ -15,12 +16,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
     return NextResponse.json({ data })
 }
 
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params
     const body = await request.json()
     const { data, error } = await supabase
         .from('assets')
         .update(body)
-        .eq('id', params.id)
+        .eq('id', id)
         .select()
         .single()
 
@@ -31,11 +33,12 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     return NextResponse.json({ data })
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params
     const { error } = await supabase
         .from('assets')
         .delete()
-        .eq('id', params.id)
+        .eq('id', id)
 
     if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 })
