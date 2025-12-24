@@ -6,6 +6,7 @@ export async function GET() {
     const { data, error } = await supabase
         .from('vendors')
         .select('*')
+        .eq('is_active', true)
         .order('name', { ascending: true })
 
     if (error) {
