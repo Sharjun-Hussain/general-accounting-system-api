@@ -12,80 +12,78 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Bank account ID is required' }, { status: 400 })
     }
 
-    // Fetch book balance (from transactions)
-    let transQuery = supabase
-        .from('transactions')
-        .select('*')
-        .eq('account_id', bankAccountId)
+    try {
+        // Fetch bank account details
+        const { data: account, error: accountError } = await supabase
+            .from('accounts')
+            .select('*')
+            .eq('id', bankAccountId)
+            .single()
 
-    if (startDate) transQuery = transQuery.gte('date', startDate)
-    if (endDate) transQuery = transQuery.lte('date', endDate)
+        if (accountError) throw accountError
 
-    const { data: transactions, error: transError } = await transQuery
+        // Fetch transactions for this bank account
+        let transactionsQuery = supabase
+            .from('transactions')
+            .select('*')
+            .eq('account_id', bankAccountId)
+            .order('date', { ascending: false })
 
-    if (transError) {
-        return NextResponse.json({ error: transError.message }, { status: 500 })
+        if (startDate) transactionsQuery = transactionsQuery.gte('date', startDate)
+        if (endDate) transactionsQuery = transactionsQuery.lte('date', endDate)
+
+        const { data: transactions, error: transactionsError } = await transactionsQuery
+
+        if (transactionsError) throw transactionsError
+
+        return NextResponse.json({
+            data: {
+                account: keysToCamel(account),
+                transactions: keysToCamel(transactions)
+            }
+        })
+    } catch (error: any) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
     }
-
-    // Calculate book balance
-    const bookBalance = (transactions || []).reduce((sum, t) => {
-        return sum + (t.type === 'income' ? Number(t.amount) : -Number(t.amount))
-    }, 0)
-
-    // Fetch uncleared cheques
-    const { data: unclearedCheques, error: chequeError } = await supabase
-        .from('issued_cheques')
-        .select('*')
-        .eq('bank_account_id', bankAccountId)
-        .in('status', ['issued', 'presented'])
-
-    if (chequeError) {
-        return NextResponse.json({ error: chequeError.message }, { status: 500 })
-    }
-
-    const unclearedAmount = (unclearedCheques || []).reduce((sum, c) => sum + Number(c.amount), 0)
-
-    // Calculate adjusted bank balance
-    const adjustedBankBalance = bookBalance - unclearedAmount
-
-    return NextResponse.json({
-        data: {
-            bookBalance,
-            unclearedCheques: keysToCamel(unclearedCheques || []),
-            unclearedAmount,
-            adjustedBankBalance,
-            transactions: keysToCamel(transactions || [])
-        }
-    })
 }
 
 export async function POST(request: Request) {
     const body = await request.json()
-    const { bankAccountId, statementBalance, reconciliationDate } = body
+    const { bankAccountId, statementBalance, reconciliationDate, matchedTransactions } = body
 
-    if (!bankAccountId || statementBalance === undefined) {
-        return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    if (!bankAccountId) {
+        return NextResponse.json({ error: 'Bank account ID is required' }, { status: 400 })
     }
 
-    // Get current reconciliation data
-    const { data: reconciliationData } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('account_id', bankAccountId)
-        .lte('date', reconciliationDate || new Date().toISOString())
+    try {
+        // Update account with statement balance and last reconciled date
+        const { error: updateError } = await supabase
+            .from('accounts')
+            .update({
+                statement_balance: statementBalance,
+                last_reconciled: reconciliationDate || new Date().toISOString().split('T')[0]
+            })
+            .eq('id', bankAccountId)
 
-    const bookBalance = (reconciliationData || []).reduce((sum, t) => {
-        return sum + (t.type === 'income' ? Number(t.amount) : -Number(t.amount))
-    }, 0)
+        if (updateError) throw updateError
 
-    const difference = Number(statementBalance) - bookBalance
+        // Mark transactions as reconciled if provided
+        if (matchedTransactions && matchedTransactions.length > 0) {
+            const { error: txError } = await supabase
+                .from('transactions')
+                .update({ reconciled: true })
+                .in('id', matchedTransactions)
 
-    return NextResponse.json({
-        data: {
-            bookBalance,
-            statementBalance: Number(statementBalance),
-            difference,
-            isReconciled: Math.abs(difference) < 0.01
+            if (txError) throw txError
         }
-    })
+
+        return NextResponse.json({
+            data: {
+                success: true,
+                message: 'Reconciliation saved successfully'
+            }
+        })
+    } catch (error: any) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
+    }
 }
