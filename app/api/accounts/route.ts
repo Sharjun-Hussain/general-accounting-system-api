@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabaseClient'
+import { keysToSnake, keysToCamel } from '@/lib/utils'
 
 export async function GET() {
     const { data, error } = await supabase
@@ -11,14 +12,14 @@ export async function GET() {
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ data })
+    return NextResponse.json({ data: keysToCamel(data) })
 }
 
 export async function POST(request: Request) {
     const body = await request.json()
     const { data, error } = await supabase
         .from('accounts')
-        .insert(body)
+        .insert(keysToSnake(body))
         .select()
         .single()
 
@@ -26,5 +27,5 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ data })
+    return NextResponse.json({ data: keysToCamel(data) })
 }

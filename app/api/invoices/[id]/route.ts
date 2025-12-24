@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabaseClient'
+import { keysToSnake, keysToCamel } from '@/lib/utils'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
@@ -13,7 +14,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ data })
+    return NextResponse.json({ data: keysToCamel(data) })
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -24,7 +25,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     // 1. Update Invoice
     const { data: invoice, error: invoiceError } = await supabase
         .from('invoices')
-        .update(invoiceData)
+        .update(keysToSnake(invoiceData))
         .eq('id', id)
         .select()
         .single()
@@ -39,14 +40,14 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         await supabase.from('invoice_items').delete().eq('invoice_id', id)
 
         const itemsWithInvoiceId = items.map((item: any) => ({
-            ...item,
+            ...keysToSnake(item),
             invoice_id: id
         }))
 
         await supabase.from('invoice_items').insert(itemsWithInvoiceId)
     }
 
-    return NextResponse.json({ data: invoice })
+    return NextResponse.json({ data: keysToCamel(invoice) })
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
