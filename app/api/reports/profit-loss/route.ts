@@ -44,16 +44,30 @@ export async function POST(request: Request) {
             return acc
         }, {} as Record<string, number>)
 
-    return NextResponse.json({
-        data: {
-            period: { startDate, endDate },
-            summary: {
-                totalIncome: income,
-                totalExpenses: expenses,
-                netProfit
-            },
-            incomeByCategory,
-            expensesByCategory
+    // Construct the report data array matching frontend expectations
+    const reportData = [
+        {
+            item: 'Total Revenue',
+            amount: income,
+            category: 'revenue'
+        },
+        // Add individual expense categories
+        ...Object.entries(expensesByCategory).map(([category, amount]) => ({
+            item: category,
+            amount: -Number(amount), // Expenses are negative
+            category: 'expenses'
+        })),
+        {
+            item: 'Total Expenses',
+            amount: -expenses,
+            category: 'total-expenses'
+        },
+        {
+            item: 'Net Profit',
+            amount: netProfit,
+            category: 'net-income'
         }
-    })
+    ]
+
+    return NextResponse.json({ data: reportData })
 }

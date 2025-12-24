@@ -43,15 +43,24 @@ export async function POST(request: Request) {
         return acc
     }, {} as Record<string, { inflows: number; outflows: number; net: number }>)
 
-    return NextResponse.json({
-        data: {
-            period: { startDate, endDate },
-            summary: {
-                totalCashInflows: cashInflows,
-                totalCashOutflows: cashOutflows,
-                netCashFlow
-            },
-            monthlyData
+    // Construct the report data array matching frontend expectations
+    const reportData = [
+        {
+            activity: 'Total Cash Inflows',
+            amount: cashInflows,
+            category: 'operating'
+        },
+        {
+            activity: 'Total Cash Outflows',
+            amount: -cashOutflows,
+            category: 'operating'
+        },
+        {
+            activity: 'Net Cash Flow',
+            amount: netCashFlow,
+            category: 'net'
         }
-    })
+    ]
+
+    return NextResponse.json({ data: reportData })
 }
