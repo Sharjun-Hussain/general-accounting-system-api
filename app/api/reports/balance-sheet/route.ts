@@ -25,39 +25,48 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: assetsError.message }, { status: 500 })
     }
 
-    // Group accounts by type
+    // Convert to flat array format expected by frontend
+    const balanceSheetData = []
+
+    // Add asset accounts
     const assetAccounts = accounts.filter(a => a.type === 'asset')
-    const liabilityAccounts = accounts.filter(a => a.type === 'liability')
-    const equityAccounts = accounts.filter(a => a.type === 'equity')
-
-    const totalAssets = assetAccounts.reduce((sum, a) => sum + Number(a.balance || 0), 0) +
-        (assets?.reduce((sum, a) => sum + Number(a.current_value || 0), 0) || 0)
-
-    const totalLiabilities = liabilityAccounts.reduce((sum, a) => sum + Number(a.balance || 0), 0)
-    const totalEquity = equityAccounts.reduce((sum, a) => sum + Number(a.balance || 0), 0)
-
-    return NextResponse.json({
-        data: {
-            asOfDate: date,
-            assets: {
-                accounts: assetAccounts,
-                fixedAssets: assets || [],
-                total: totalAssets
-            },
-            liabilities: {
-                accounts: liabilityAccounts,
-                total: totalLiabilities
-            },
-            equity: {
-                accounts: equityAccounts,
-                total: totalEquity
-            },
-            summary: {
-                totalAssets,
-                totalLiabilities,
-                totalEquity,
-                balance: totalAssets - (totalLiabilities + totalEquity)
-            }
-        }
+    assetAccounts.forEach(acc => {
+        balanceSheetData.push({
+            account: acc.name,
+            amount: Number(acc.balance || 0),
+            type: 'asset'
+        })
     })
+
+    // Add fixed assets
+    if (assets && assets.length > 0) {
+        const totalFixedAssets = assets.reduce((sum, a) => sum + Number(a.current_value || 0), 0)
+        balanceSheetData.push({
+            account: 'Fixed Assets',
+            amount: totalFixedAssets,
+            type: 'asset'
+        })
+    }
+
+    // Add liability accounts
+    const liabilityAccounts = accounts.filter(a => a.type === 'liability')
+    liabilityAccounts.forEach(acc => {
+        balanceSheetData.push({
+            account: acc.name,
+            amount: -Math.abs(Number(acc.balance || 0)), // Negative for liabilities
+            type: 'liability'
+        })
+    })
+
+    // Add equity accounts
+    const equityAccounts = accounts.filter(a => a.type === 'equity')
+    equityAccounts.forEach(acc => {
+        balanceSheetData.push({
+            account: acc.name,
+            amount: Number(acc.balance || 0),
+            type: 'equity'
+        })
+    })
+
+    return NextResponse.json({ data: balanceSheetData })
 }
