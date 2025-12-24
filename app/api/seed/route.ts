@@ -22,7 +22,6 @@ export async function GET() {
                 name: 'Cash on Hand',
                 code: '1000',
                 type: 'asset',
-                description: 'Main cash account',
                 is_active: true,
                 balance: 0
             })
