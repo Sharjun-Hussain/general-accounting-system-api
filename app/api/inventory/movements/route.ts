@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabaseClient'
+import { keysToSnake, keysToCamel } from '@/lib/utils'
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
@@ -20,20 +21,17 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ data })
+    return NextResponse.json({ data: keysToCamel(data) })
 }
 
 export async function POST(request: Request) {
     const body = await request.json()
-
-    // Start a transaction (Supabase doesn't support multi-statement transactions in client directly easily without RPC, 
-    // but we will do optimistic updates or sequential operations for now. 
-    // Ideally this should be a Postgres function for atomicity).
+    const snakeBody = keysToSnake(body)
 
     // 1. Record Movement
     const { data: movement, error: movementError } = await supabase
         .from('stock_movements')
-        .insert(body)
+        .insert(snakeBody)
         .select()
         .single()
 
@@ -42,19 +40,14 @@ export async function POST(request: Request) {
     }
 
     // 2. Update Inventory Quantity
-    // Calculate adjustment
-    let adjustment = body.quantity
-    if (body.type === 'out') adjustment = -body.quantity
-    // For 'adjustment' type, we assume the quantity passed IS the adjustment amount (positive or negative)
-    // If 'adjustment' means "set to specific value", logic would differ. 
-    // Based on frontend code: "const actualQty = movementForm.type === 'out' ? -qty : qty;"
-    // So we just add the signed quantity.
+    let adjustment = snakeBody.quantity
+    if (snakeBody.type === 'out') adjustment = -snakeBody.quantity
 
     // Fetch current item
     const { data: item } = await supabase
         .from('inventory_items')
         .select('quantity')
-        .eq('id', body.item_id)
+        .eq('id', snakeBody.item_id)
         .single()
 
     if (item) {
@@ -62,8 +55,8 @@ export async function POST(request: Request) {
         await supabase
             .from('inventory_items')
             .update({ quantity: newQty, last_updated: new Date().toISOString() })
-            .eq('id', body.item_id)
+            .eq('id', snakeBody.item_id)
     }
 
-    return NextResponse.json({ data: movement })
+    return NextResponse.json({ data: keysToCamel(movement) })
 }

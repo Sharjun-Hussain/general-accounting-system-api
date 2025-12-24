@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabaseClient'
+import { keysToSnake, keysToCamel } from '@/lib/utils'
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
@@ -22,14 +23,18 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ data })
+    return NextResponse.json({ data: keysToCamel(data) })
 }
 
 export async function POST(request: Request) {
     const body = await request.json()
+    console.log('Received body:', JSON.stringify(body, null, 2))
+    const convertedBody = keysToSnake(body)
+    console.log('Converted body:', JSON.stringify(convertedBody, null, 2))
+
     const { data, error } = await supabase
         .from('assets')
-        .insert(body)
+        .insert(convertedBody)
         .select()
         .single()
 
@@ -37,5 +42,5 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ data })
+    return NextResponse.json({ data: keysToCamel(data) })
 }

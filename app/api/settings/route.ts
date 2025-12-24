@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabaseClient'
+import { keysToSnake, keysToCamel } from '@/lib/utils'
 
 export async function GET() {
     const { data, error } = await supabase
@@ -11,7 +12,7 @@ export async function GET() {
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ data: data || {} })
+    return NextResponse.json({ data: keysToCamel(data) || {} })
 }
 
 export async function POST(request: Request) {
@@ -20,7 +21,7 @@ export async function POST(request: Request) {
     // Upsert settings (assuming single row for now)
     const { data, error } = await supabase
         .from('organization_settings')
-        .upsert({ id: 1, ...body }) // Hardcoded ID 1 for single org
+        .upsert(keysToSnake({ id: 1, ...body })) // Hardcoded ID 1 for single org
         .select()
         .single()
 
@@ -28,5 +29,5 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ data })
+    return NextResponse.json({ data: keysToCamel(data) })
 }

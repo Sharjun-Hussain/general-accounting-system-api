@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabaseClient'
+import { keysToSnake, keysToCamel } from '@/lib/utils'
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
@@ -20,7 +21,7 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ data })
+    return NextResponse.json({ data: keysToCamel(data) })
 }
 
 export async function POST(request: Request) {
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
     // 1. Create Invoice
     const { data: invoice, error: invoiceError } = await supabase
         .from('invoices')
-        .insert(invoiceData)
+        .insert(keysToSnake(invoiceData))
         .select()
         .single()
 
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
     // 2. Create Invoice Items
     if (items && items.length > 0) {
         const itemsWithInvoiceId = items.map((item: any) => ({
-            ...item,
+            ...keysToSnake(item),
             invoice_id: invoice.id
         }))
 
@@ -55,5 +56,5 @@ export async function POST(request: Request) {
         }
     }
 
-    return NextResponse.json({ data: invoice })
+    return NextResponse.json({ data: keysToCamel(invoice) })
 }
