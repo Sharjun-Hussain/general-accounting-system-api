@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabaseClient'
+import { createAuthenticatedClient, supabase as supabaseAdmin } from '@/lib/supabaseClient'
 
-export async function GET() {
+export async function GET(request: Request) {
     try {
+        // Get auth token from request headers
+        const authHeader = request.headers.get('authorization')
+        const supabase = authHeader
+            ? createAuthenticatedClient(authHeader)
+            : supabaseAdmin
+
         // Fetch all transactions for the current month
         const currentDate = new Date()
         const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).toISOString()
@@ -49,28 +55,28 @@ export async function GET() {
 
         // Calculate metrics
         const totalRevenue = (transactions || [])
-            .filter(t => t.type === 'income')
-            .reduce((sum, t) => sum + Number(t.amount || 0), 0)
+            .filter((t: any) => t.type === 'income')
+            .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0)
 
         const totalExpenses = (transactions || [])
-            .filter(t => t.type === 'expense')
-            .reduce((sum, t) => sum + Number(t.amount || 0), 0)
+            .filter((t: any) => t.type === 'expense')
+            .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0)
 
         const netProfit = totalRevenue - totalExpenses
 
-        const totalAssets = (assets || []).reduce((sum, a) => sum + Number(a.current_value || 0), 0)
+        const totalAssets = (assets || []).reduce((sum: number, a: any) => sum + Number(a.current_value || 0), 0)
 
         const cashBalance = (accounts || [])
-            .filter(a => a.type === 'asset' && (a.name.toLowerCase().includes('cash') || a.name.toLowerCase().includes('bank')))
-            .reduce((sum, a) => sum + Number(a.balance || 0), 0)
+            .filter((a: any) => a.type === 'asset' && (a.name.toLowerCase().includes('cash') || a.name.toLowerCase().includes('bank')))
+            .reduce((sum: number, a: any) => sum + Number(a.balance || 0), 0)
 
         const accountsReceivable = (invoices || [])
-            .filter(i => i.status !== 'paid')
-            .reduce((sum, i) => sum + Number(i.amount || 0) - Number(i.amount_paid || 0), 0)
+            .filter((i: any) => i.status !== 'paid')
+            .reduce((sum: number, i: any) => sum + Number(i.amount || 0) - Number(i.amount_paid || 0), 0)
 
         const accountsPayable = (bills || [])
-            .filter(b => b.status !== 'paid')
-            .reduce((sum, b) => sum + Number(b.amount || 0) - Number(b.amount_paid || 0), 0)
+            .filter((b: any) => b.status !== 'paid')
+            .reduce((sum: number, b: any) => sum + Number(b.amount || 0) - Number(b.amount_paid || 0), 0)
 
         // Recent transactions (last 10)
         const { data: recentTransactions } = await supabase
@@ -112,6 +118,7 @@ export async function GET() {
             }
         })
     } catch (error: any) {
+        console.error('Dashboard API Error:', error)
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
 }
