@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabaseClient'
+import { createAuthenticatedClient, supabase as supabaseAdmin } from '@/lib/supabaseClient'
 import { keysToSnake, keysToCamel } from '@/lib/utils'
 
 export async function GET(request: Request) {
@@ -8,6 +8,12 @@ export async function GET(request: Request) {
     const accountId = searchParams.get('accountId')
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
+
+    // Get auth token from request headers
+    const authHeader = request.headers.get('authorization')
+    const supabase = authHeader
+        ? createAuthenticatedClient(authHeader)
+        : supabaseAdmin
 
     let query = supabase
         .from('transactions')
@@ -30,6 +36,13 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
     const body = await request.json()
+
+    // Get auth token from request headers
+    const authHeader = request.headers.get('authorization')
+    const supabase = authHeader
+        ? createAuthenticatedClient(authHeader)
+        : supabaseAdmin
+
     const { data, error } = await supabase
         .from('transactions')
         .insert(keysToSnake(body))

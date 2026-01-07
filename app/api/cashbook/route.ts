@@ -1,11 +1,17 @@
 import { NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabaseClient'
+import { createAuthenticatedClient, supabase as supabaseAdmin } from '@/lib/supabaseClient'
 import { keysToCamel } from '@/lib/utils'
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
+
+    // Get auth token from request headers
+    const authHeader = request.headers.get('authorization')
+    const supabase = authHeader
+        ? createAuthenticatedClient(authHeader)
+        : supabaseAdmin
 
     // Fetch cash transactions (transactions with cash accounts)
     let query = supabase
